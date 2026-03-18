@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Online Dama</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px;
+            background: #f4f4f4;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        #joinPanel {
+            background: white;
+            padding: 16px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #joinPanel input {
+            padding: 10px;
+            font-size: 16px;
+            width: 220px;
+        }
+
+        #joinPanel button {
+            padding: 10px 14px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        #topbar {
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        #status, #playerInfo, #roomInfo {
+            margin: 6px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 70px);
+            grid-template-rows: repeat(8, 70px);
+            border: 4px solid #222;
+        }
+
+        .cell {
+            width: 70px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        .light {
+            background-color: #f0d9b5;
+        }
+
+        .dark {
+            background-color: #b58863;
+        }
+
+        .selected {
+            outline: 4px solid yellow;
+            outline-offset: -4px;
+        }
+
+        .hint {
+            box-shadow: inset 0 0 0 4px rgba(0, 255, 0, 0.65);
+        }
+
+        .piece {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .red-piece {
+            background-color: #d22;
+        }
+
+        .black-piece {
+            background-color: #111;
+        }
+
+        .king::after {
+            content: "K";
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Online Dama</h1>
+
+    <div id="joinPanel">
+        <input type="text" id="roomInput" placeholder="Oda kodu gir (örn: oda123)" />
+        <button id="joinBtn">Katıl</button>
+        <button id="resetBtn">Yeni Oyun</button>
+    </div>
+
+    <div id="topbar">
+        <div id="roomInfo">Oda: Henüz bağlanmadı</div>
+        <div id="playerInfo">Oyuncu rengi atanıyor...</div>
+        <div id="status">Bağlanıyor...</div>
+    </div>
+
+    <div id="board"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script>
+        const board = document.getElementById("board");
+        const statusText = document.getElementById("status");
+        const playerInfo = document.getElementById("playerInfo");
+        const roomInfo = document.getElementById("roomInfo");
+        const roomInput = document.getElementById("roomInput");
+        const joinBtn = document.getElementById("joinBtn");
+        const resetBtn = document.getElementById("resetBtn");
+
+        let myColor = "spectator";
+        let selectedPiece = null;
+        let gameState = null;
+        let currentRoomId = null;
+        let isJoined = false;
+
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/gamehub")
+            .build();
+
+        connection.on("PlayerAssigned", (color) => {
+            myColor = color;
+
+            if (color === "r") {
+                playerInfo.textContent = "Sen kırmızı taşsın";
+            } else if (color === "b") {
+                playerInfo.textContent = "Sen siyah taşsın";
+            } else {
+                playerInfo.textContent = "Sen izleyicisin";
+            }
+
+            updateStatus();
+        });
+
+        connection.on("GameStarted", () => {
+            updateStatus("Oyun başladı");
+        });
+
+        connection.on("ReceiveState", (state) => {
+            gameState = state;
+            selectedPiece = null;
+            updateStatus();
+            drawBoard();
+        });
+
+        connection.on("InvalidMove", () => {
+            updateStatus("Geçersiz hamle");
+        });
+
+        connection.on("PlayerDisconnected", () => {
+            updateStatus("Bir oyuncu ayrıldı");
+        });
+
+        connection.start()
+            .then(() => {
+                statusText.textContent = "Bağlandı. Oda kodu girip katıl.";
+            })
+            .catch(err => {
+                console.error(err);
+                statusText.textContent = "Bağlantı hatası";
+            });
+
+        joinBtn.addEventListener("click", joinRoom);
+
+        resetBtn.addEventListener("click", function () {
+            if (!currentRoomId) {
+                updateStatus("Önce bir odaya katıl");
+                return;
+            }
+
+            connection.invoke("ResetGame", currentRoomId)
+                .catch(err => {
+                    console.error(err.toString());
+                    updateStatus("Yeni oyun başlatma hatası");
+                });
+        });
+
+        roomInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                joinRoom();
+            }
+        });
+
+        function joinRoom() {
+            const roomId = roomInput.value.trim();
+
+            if (roomId === "") {
+                updateStatus("Lütfen oda kodu gir");
+                return;
+            }
+
+            currentRoomId = roomId;
+            isJoined = true;
+            roomInfo.textContent = "Oda: " + currentRoomId;
+            statusText.textContent = "Odaya katılıyor...";
+
+            connection.invoke("JoinGame", currentRoomId)
+                .catch(err => {
+                    console.error(err.toString());
+                    updateStatus("Odaya katılma hatası");
+                });
+        }
+
+        function isRedPiece(piece) {
+            return piece === "r" || piece === "R";
+        }
+
+        function isBlackPiece(piece) {
+            return piece === "b" || piece === "B";
+        }
+
+        function isKing(piece) {
+            return piece === "R" || piece === "B";
+        }
+
+        function belongsToPlayer(piece, player) {
+            if (player === "r") return isRedPiece(piece);
+            if (player === "b") return isBlackPiece(piece);
+            return false;
+        }
+
+        function insideBoard(row, col) {
+            return row >= 0 && row < 8 && col >= 0 && col < 8;
+        }
+
+        function getDirections(piece) {
+            if (piece === "r") return [[-1, -1], [-1, 1]];
+            if (piece === "b") return [[1, -1], [1, 1]];
+            if (piece === "R" || piece === "B") {
+                return [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+            }
+            return [];
+        }
+
+        function getLegalTargets(row, col) {
+            if (!gameState) return [];
+
+            const boardData = gameState.board;
+            const piece = boardData[row][col];
+            const targets = [];
+
+            if (!belongsToPlayer(piece, gameState.currentPlayer)) {
+                return [];
+            }
+
+            if (
+                gameState.forcedRow !== null &&
+                gameState.forcedCol !== null &&
+                (row !== gameState.forcedRow || col !== gameState.forcedCol)
+            ) {
+                return [];
+            }
+
+            let mustCapture = false;
+
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = boardData[r][c];
+                    if (!belongsToPlayer(p, gameState.currentPlayer)) continue;
+
+                    for (const [dr, dc] of getDirections(p)) {
+                        const mr = r + dr;
+                        const mc = c + dc;
+                        const lr = r + 2 * dr;
+                        const lc = c + 2 * dc;
+
+                        if (!insideBoard(mr, mc) || !insideBoard(lr, lc)) continue;
+
+                        const midPiece = boardData[mr][mc];
+                        const landing = boardData[lr][lc];
+
+                        if (
+                            gameState.currentPlayer === "r" &&
+                            isBlackPiece(midPiece) &&
+                            landing === ""
+                        ) {
+                            mustCapture = true;
+                        }
+
+                        if (
+                            gameState.currentPlayer === "b" &&
+                            isRedPiece(midPiece) &&
+                            landing === ""
+                        ) {
+                            mustCapture = true;
+                        }
+                    }
+                }
+            }
+
+            for (const [dr, dc] of getDirections(piece)) {
+                const nr = row + dr;
+                const nc = col + dc;
+
+                if (insideBoard(nr, nc) && boardData[nr][nc] === "" && !mustCapture) {
+                    targets.push({ row: nr, col: nc });
+                }
+
+                const mr = row + dr;
+                const mc = col + dc;
+                const lr = row + 2 * dr;
+                const lc = col + 2 * dc;
+
+                if (!insideBoard(mr, mc) || !insideBoard(lr, lc)) continue;
+
+                const midPiece = boardData[mr][mc];
+                const landing = boardData[lr][lc];
+
+                if (
+                    gameState.currentPlayer === "r" &&
+                    isBlackPiece(midPiece) &&
+                    landing === ""
+                ) {
+                    targets.push({ row: lr, col: lc });
+                }
+
+                if (
+                    gameState.currentPlayer === "b" &&
+                    isRedPiece(midPiece) &&
+                    landing === ""
+                ) {
+                    targets.push({ row: lr, col: lc });
+                }
+            }
+
+            return targets;
+        }
+
+        function handleCellClick(row, col) {
+            if (!isJoined) return;
+            if (!gameState) return;
+            if (gameState.gameOver) return;
+            if (myColor === "spectator") return;
+            if (myColor !== gameState.currentPlayer) return;
+
+            const piece = gameState.board[row][col];
+
+            if (selectedPiece === null) {
+                if (belongsToPlayer(piece, myColor)) {
+                    const legalTargets = getLegalTargets(row, col);
+                    if (legalTargets.length > 0) {
+                        selectedPiece = { row, col };
+                        drawBoard();
+                    }
+                }
+                return;
+            }
+
+            if (belongsToPlayer(piece, myColor)) {
+                const legalTargets = getLegalTargets(row, col);
+                if (legalTargets.length > 0) {
+                    selectedPiece = { row, col };
+                    drawBoard();
+                }
+                return;
+            }
+
+            const legalTargets = getLegalTargets(selectedPiece.row, selectedPiece.col);
+            const validTarget = legalTargets.find(t => t.row === row && t.col === col);
+
+            if (!validTarget) {
+                return;
+            }
+
+            connection.invoke("MakeMove", currentRoomId, {
+                fromRow: selectedPiece.row,
+                fromCol: selectedPiece.col,
+                toRow: row,
+                toCol: col,
+                player: myColor
+            }).catch(err => console.error(err.toString()));
+        }
+
+        function updateStatus(extra = "") {
+            if (!isJoined) {
+                statusText.textContent = extra || "Oda kodu girip katıl.";
+                return;
+            }
+
+            if (!gameState) {
+                statusText.textContent = extra || "Oyun durumu bekleniyor...";
+                return;
+            }
+
+            if (gameState.gameOver) {
+                if (gameState.winner === "r") {
+                    statusText.textContent = "Oyun bitti. Kazanan: Kırmızı";
+                } else if (gameState.winner === "b") {
+                    statusText.textContent = "Oyun bitti. Kazanan: Siyah";
+                } else {
+                    statusText.textContent = "Oyun bitti";
+                }
+                return;
+            }
+
+            let text = gameState.currentPlayer === "r" ? "Sıra: Kırmızı" : "Sıra: Siyah";
+
+            if (gameState.forcedRow !== null && gameState.forcedCol !== null) {
+                text += " | Aynı taşla yemeye devam et";
+            }
+
+            if (extra) {
+                text += " | " + extra;
+            }
+
+            statusText.textContent = text;
+        }
+
+        function drawBoard() {
+            board.innerHTML = "";
+
+            if (!gameState) return;
+
+            let hints = [];
+
+            if (selectedPiece) {
+                hints = getLegalTargets(selectedPiece.row, selectedPiece.col);
+            }
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const cell = document.createElement("div");
+                    cell.classList.add("cell");
+                    cell.classList.add((row + col) % 2 === 0 ? "light" : "dark");
+
+                    if (selectedPiece && selectedPiece.row === row && selectedPiece.col === col) {
+                        cell.classList.add("selected");
+                    }
+
+                    if (hints.some(h => h.row === row && h.col === col)) {
+                        cell.classList.add("hint");
+                    }
+
+                    const pieceValue = gameState.board[row][col];
+
+                    if (pieceValue !== "") {
+                        const piece = document.createElement("div");
+                        piece.classList.add("piece");
+
+                        if (isRedPiece(pieceValue)) {
+                            piece.classList.add("red-piece");
+                        } else {
+                            piece.classList.add("black-piece");
+                        }
+
+                        if (isKing(pieceValue)) {
+                            piece.classList.add("king");
+                        }
+
+                        cell.appendChild(piece);
+                    }
+
+                    cell.addEventListener("click", () => handleCellClick(row, col));
+                    board.appendChild(cell);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
