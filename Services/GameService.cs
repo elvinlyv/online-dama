@@ -34,10 +34,8 @@ namespace OnlineDama.Services
         public bool IsOpponentPiece(string piece, string player)
         {
             if (piece == "") return false;
-
             if (player == "r") return IsBlackPiece(piece);
             if (player == "b") return IsRedPiece(piece);
-
             return false;
         }
 
@@ -66,6 +64,37 @@ namespace OnlineDama.Services
             return directions;
         }
 
+        public void ApplyTurnClock(GameState game)
+        {
+            if (game.GameOver) return;
+
+            var elapsed = (int)Math.Floor((DateTime.UtcNow - game.TurnStartedAtUtc).TotalSeconds);
+            if (elapsed <= 0) return;
+
+            if (game.CurrentPlayer == "r")
+            {
+                game.RedTimeLeftSeconds = Math.Max(0, game.RedTimeLeftSeconds - elapsed);
+                if (game.RedTimeLeftSeconds == 0)
+                {
+                    game.GameOver = true;
+                    game.Winner = "b";
+                    return;
+                }
+            }
+            else
+            {
+                game.BlackTimeLeftSeconds = Math.Max(0, game.BlackTimeLeftSeconds - elapsed);
+                if (game.BlackTimeLeftSeconds == 0)
+                {
+                    game.GameOver = true;
+                    game.Winner = "r";
+                    return;
+                }
+            }
+
+            game.TurnStartedAtUtc = DateTime.UtcNow;
+        }
+
         public void PromoteIfNeeded(GameState game, int row, int col)
         {
             var piece = game.Board[row][col];
@@ -85,6 +114,26 @@ namespace OnlineDama.Services
             var result = new List<(int toRow, int toCol)>();
             var piece = game.Board[row][col];
 
+            if (piece == "") return result;
+
+            if (IsKing(piece))
+            {
+                foreach (var (dr, dc) in GetDirections(piece))
+                {
+                    int r = row + dr;
+                    int c = col + dc;
+
+                    while (IsInside(r, c) && game.Board[r][c] == "")
+                    {
+                        result.Add((r, c));
+                        r += dr;
+                        c += dc;
+                    }
+                }
+
+                return result;
+            }
+
             foreach (var (dr, dc) in GetDirections(piece))
             {
                 int newRow = row + dr;
@@ -103,6 +152,59 @@ namespace OnlineDama.Services
         {
             var result = new List<(int toRow, int toCol, int capturedRow, int capturedCol)>();
             var piece = game.Board[row][col];
+
+            if (piece == "") return result;
+
+            if (IsKing(piece))
+            {
+                foreach (var (dr, dc) in GetDirections(piece))
+                {
+                    int r = row + dr;
+                    int c = col + dc;
+                    bool foundOpponent = false;
+                    int capturedRow = -1;
+                    int capturedCol = -1;
+
+                    while (IsInside(r, c))
+                    {
+                        var current = game.Board[r][c];
+
+                        if (current == "")
+                        {
+                            if (foundOpponent)
+                            {
+                                result.Add((r, c, capturedRow, capturedCol));
+                            }
+
+                            r += dr;
+                            c += dc;
+                            continue;
+                        }
+
+                        if (BelongsToPlayer(current, player))
+                        {
+                            break;
+                        }
+
+                        if (IsOpponentPiece(current, player))
+                        {
+                            if (foundOpponent)
+                            {
+                                break;
+                            }
+
+                            foundOpponent = true;
+                            capturedRow = r;
+                            capturedCol = c;
+                            r += dr;
+                            c += dc;
+                            continue;
+                        }
+                    }
+                }
+
+                return result;
+            }
 
             foreach (var (dr, dc) in GetDirections(piece))
             {
@@ -189,19 +291,18 @@ namespace OnlineDama.Services
         public void ApplyMove(GameState game, Move move)
         {
             var piece = game.Board[move.FromRow][move.FromCol];
-            int rowDiff = move.ToRow - move.FromRow;
-            int colDiff = move.ToCol - move.FromCol;
 
-            bool isCapture = Math.Abs(rowDiff) == 2 && Math.Abs(colDiff) == 2;
+            var captureMove = GetCaptureMoves(game, move.FromRow, move.FromCol, move.Player)
+                .FirstOrDefault(c => c.toRow == move.ToRow && c.toCol == move.ToCol);
+
+            bool isCapture = captureMove != default;
 
             game.Board[move.ToRow][move.ToCol] = piece;
             game.Board[move.FromRow][move.FromCol] = "";
 
             if (isCapture)
             {
-                int capturedRow = move.FromRow + rowDiff / 2;
-                int capturedCol = move.FromCol + colDiff / 2;
-                game.Board[capturedRow][capturedCol] = "";
+                game.Board[captureMove.capturedRow][captureMove.capturedCol] = "";
             }
 
             PromoteIfNeeded(game, move.ToRow, move.ToCol);
@@ -221,6 +322,7 @@ namespace OnlineDama.Services
             game.ForcedRow = null;
             game.ForcedCol = null;
             game.CurrentPlayer = game.CurrentPlayer == "r" ? "b" : "r";
+            game.TurnStartedAtUtc = DateTime.UtcNow;
         }
 
         public int CountPieces(GameState game, string player)
@@ -256,9 +358,12 @@ namespace OnlineDama.Services
                     if (captures.Count > 0)
                         return true;
 
-                    var simpleMoves = GetSimpleMoves(game, row, col);
-                    if (simpleMoves.Count > 0)
-                        return true;
+                    if (!PlayerHasCapture(game, player))
+                    {
+                        var simpleMoves = GetSimpleMoves(game, row, col);
+                        if (simpleMoves.Count > 0)
+                            return true;
+                    }
                 }
             }
 

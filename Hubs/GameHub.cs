@@ -15,12 +15,11 @@ namespace OnlineDama.Hubs
             _gameService = new GameService();
         }
 
-        public async Task JoinGame(string gameId)
+        public async Task JoinGame(string gameId, string playerName)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
 
             var room = Rooms.GetOrAdd(gameId, _ => new RoomState());
-
             string assignedColor;
 
             lock (room)
@@ -28,11 +27,13 @@ namespace OnlineDama.Hubs
                 if (room.RedConnectionId == null)
                 {
                     room.RedConnectionId = Context.ConnectionId;
+                    room.Game.RedPlayerName = playerName;
                     assignedColor = "r";
                 }
                 else if (room.BlackConnectionId == null)
                 {
                     room.BlackConnectionId = Context.ConnectionId;
+                    room.Game.BlackPlayerName = playerName;
                     assignedColor = "b";
                 }
                 else
@@ -46,8 +47,11 @@ namespace OnlineDama.Hubs
 
             if (room.RedConnectionId != null && room.BlackConnectionId != null)
             {
+                room.Game.TurnStartedAtUtc = DateTime.UtcNow;
                 await Clients.Group(gameId).SendAsync("GameStarted");
             }
+
+            await BroadcastOpenRooms();
         }
 
         public async Task MakeMove(string gameId, Move move)
@@ -59,7 +63,9 @@ namespace OnlineDama.Hubs
 
             lock (room)
             {
-                if (_gameService.IsValidMove(room.Game, move))
+                _gameService.ApplyTurnClock(room.Game);
+
+                if (!room.Game.GameOver && _gameService.IsValidMove(room.Game, move))
                 {
                     _gameService.ApplyMove(room.Game, move);
                     _gameService.UpdateGameStatus(room.Game);
@@ -67,7 +73,7 @@ namespace OnlineDama.Hubs
                 }
             }
 
-            if (moveAccepted)
+            if (moveAccepted || room.Game.GameOver)
             {
                 await Clients.Group(gameId).SendAsync("ReceiveState", room.Game);
             }
@@ -84,7 +90,15 @@ namespace OnlineDama.Hubs
 
             lock (room)
             {
-                room.Game = new GameState();
+                var redName = room.Game.RedPlayerName;
+                var blackName = room.Game.BlackPlayerName;
+
+                room.Game = new GameState
+                {
+                    RedPlayerName = redName,
+                    BlackPlayerName = blackName,
+                    TurnStartedAtUtc = DateTime.UtcNow
+                };
             }
 
             await Clients.Group(gameId).SendAsync("ReceiveState", room.Game);
@@ -97,9 +111,14 @@ namespace OnlineDama.Hubs
 
             var safeMessage = message.Trim();
             if (safeMessage.Length > 200)
-                safeMessage = safeMessage.Substring(0, 200);
+                safeMessage = safeMessage[..200];
 
             await Clients.Group(gameId).SendAsync("ReceiveChatMessage", sender, safeMessage);
+        }
+
+        public async Task RequestOpenRooms()
+        {
+            await Clients.Caller.SendAsync("ReceiveOpenRooms", GetOpenRooms());
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
@@ -115,12 +134,14 @@ namespace OnlineDama.Hubs
                     if (room.RedConnectionId == Context.ConnectionId)
                     {
                         room.RedConnectionId = null;
+                        room.Game.RedPlayerName = "";
                         changed = true;
                     }
 
                     if (room.BlackConnectionId == Context.ConnectionId)
                     {
                         room.BlackConnectionId = null;
+                        room.Game.BlackPlayerName = "";
                         changed = true;
                     }
                 }
@@ -139,7 +160,32 @@ namespace OnlineDama.Hubs
                 }
             }
 
+            await BroadcastOpenRooms();
             await base.OnDisconnectedAsync(exception);
+        }
+
+        private async Task BroadcastOpenRooms()
+        {
+            await Clients.All.SendAsync("ReceiveOpenRooms", GetOpenRooms());
+        }
+
+        private static List<OpenRoomInfo> GetOpenRooms()
+        {
+            return Rooms
+                .Where(r => (r.Value.RedConnectionId == null) ^ (r.Value.BlackConnectionId == null))
+                .Select(r =>
+                {
+                    bool redWaiting = r.Value.RedConnectionId != null && r.Value.BlackConnectionId == null;
+
+                    return new OpenRoomInfo
+                    {
+                        RoomId = r.Key,
+                        WaitingPlayerName = redWaiting ? r.Value.Game.RedPlayerName : r.Value.Game.BlackPlayerName,
+                        WaitingColor = redWaiting ? "Kırmızı" : "Siyah"
+                    };
+                })
+                .OrderBy(r => r.RoomId)
+                .ToList();
         }
 
         private class RoomState
@@ -147,6 +193,13 @@ namespace OnlineDama.Hubs
             public string? RedConnectionId { get; set; }
             public string? BlackConnectionId { get; set; }
             public GameState Game { get; set; } = new GameState();
+        }
+
+        private class OpenRoomInfo
+        {
+            public string RoomId { get; set; } = "";
+            public string WaitingPlayerName { get; set; } = "";
+            public string WaitingColor { get; set; } = "";
         }
     }
 }

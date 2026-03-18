@@ -9,6 +9,13 @@ namespace OnlineDama.Models
         public int? ForcedRow { get; set; }
         public int? ForcedCol { get; set; }
 
+        public int RedTimeLeftSeconds { get; set; } = 300;
+        public int BlackTimeLeftSeconds { get; set; } = 300;
+        public DateTime TurnStartedAtUtc { get; set; } = DateTime.UtcNow;
+
+        public string RedPlayerName { get; set; } = "";
+        public string BlackPlayerName { get; set; } = "";
+
         public GameState()
         {
             Board = new string[][]

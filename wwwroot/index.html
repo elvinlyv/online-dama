@@ -46,20 +46,10 @@
             pointer-events: none;
         }
 
-        .landing-screen::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(circle at 20% 20%, rgba(255,255,255,0.04), transparent 20%),
-                radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03), transparent 20%);
-            pointer-events: none;
-        }
-
         .landing-card {
             position: relative;
             z-index: 2;
-            width: min(900px, 96vw);
+            width: min(1100px, 96vw);
             padding: 40px 30px;
             border-radius: 28px;
             background: rgba(13, 13, 13, 0.82);
@@ -75,7 +65,6 @@
             letter-spacing: 2px;
             margin: 0 0 12px;
             color: #f2dec2;
-            text-shadow: 0 6px 30px rgba(0,0,0,0.35);
         }
 
         .landing-subtitle {
@@ -109,17 +98,14 @@
         }
 
         .join-panel {
-            max-width: 520px;
-            margin: 0 auto;
-            display: flex;
+            max-width: 820px;
+            margin: 0 auto 28px;
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto;
             gap: 12px;
-            flex-wrap: wrap;
-            justify-content: center;
         }
 
         .join-panel input {
-            flex: 1;
-            min-width: 240px;
             padding: 16px 18px;
             border-radius: 14px;
             border: 1px solid rgba(255,255,255,0.12);
@@ -152,6 +138,40 @@
         .chat-input-row button:hover {
             transform: translateY(-1px);
             opacity: 0.95;
+        }
+
+        .open-rooms {
+            margin-top: 18px;
+            text-align: left;
+        }
+
+        .open-rooms h3 {
+            margin: 0 0 12px;
+            color: #f2dec2;
+        }
+
+        #openRoomsList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .room-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        .room-card-title {
+            font-weight: 800;
+            color: #ffe4b2;
+            margin-bottom: 8px;
+        }
+
+        .room-card button {
+            margin-top: 10px;
+            width: 100%;
         }
 
         .signature {
@@ -197,6 +217,25 @@
             margin: 4px 0;
         }
 
+        .clock-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .clock-box {
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            min-width: 150px;
+        }
+
+        .clock-box.active {
+            outline: 2px solid #ffe66a;
+        }
+
         .topbar-right {
             display: flex;
             gap: 10px;
@@ -207,7 +246,7 @@
             max-width: 1380px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: minmax(320px, 1fr) 270px;
+            grid-template-columns: minmax(320px, 1fr) 290px;
             gap: 20px;
             align-items: start;
         }
@@ -237,6 +276,15 @@
             border-radius: 14px;
             overflow: hidden;
             box-shadow: 0 12px 35px rgba(0,0,0,0.35);
+            transform-origin: center;
+        }
+
+        #board.flipped {
+            transform: rotate(180deg);
+        }
+
+        #board.flipped .piece {
+            transform: rotate(180deg);
         }
 
         .cell {
@@ -390,12 +438,8 @@
                 grid-template-columns: 1fr;
             }
 
-            .chat-card {
-                order: 2;
-            }
-
-            .board-card {
-                order: 1;
+            .join-panel {
+                grid-template-columns: 1fr;
             }
 
             #chatMessages {
@@ -438,8 +482,15 @@
             <p class="landing-subtitle">Rakibini bul, odaya katıl ve maça başla.</p>
 
             <div class="join-panel">
+                <input type="text" id="playerNameInput" placeholder="Oyuncu adını gir" />
                 <input type="text" id="roomInput" placeholder="Oda kodunu gir" />
                 <button id="joinBtn">Oyuna Katıl</button>
+                <button id="quickMatchBtn">Hızlı Eşleş</button>
+            </div>
+
+            <div class="open-rooms">
+                <h3>Açık Odalar</h3>
+                <div id="openRoomsList"></div>
             </div>
         </div>
     </div>
@@ -451,6 +502,17 @@
                 <div id="roomInfo" class="info-line">Oda: -</div>
                 <div id="playerInfo" class="info-line">Oyuncu rengi atanıyor...</div>
                 <div id="status" class="info-line">Bağlanıyor...</div>
+
+                <div class="clock-row">
+                    <div id="redClockBox" class="clock-box">
+                        <div><strong id="redNameLabel">Kırmızı</strong></div>
+                        <div id="redClock">05:00</div>
+                    </div>
+                    <div id="blackClockBox" class="clock-box">
+                        <div><strong id="blackNameLabel">Siyah</strong></div>
+                        <div id="blackClock">05:00</div>
+                    </div>
+                </div>
             </div>
 
             <div class="topbar-right">
@@ -481,7 +543,7 @@
         <div id="resultText" class="result-text">WIN</div>
     </div>
 
-    <div class="signature">Abidin Hüseynzade</div>
+    <div class="signature">Elvin Aliyev</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
     <script>
@@ -490,12 +552,15 @@
         const playerInfo = document.getElementById("playerInfo");
         const roomInfo = document.getElementById("roomInfo");
         const roomInput = document.getElementById("roomInput");
+        const playerNameInput = document.getElementById("playerNameInput");
         const joinBtn = document.getElementById("joinBtn");
+        const quickMatchBtn = document.getElementById("quickMatchBtn");
         const resetBtn = document.getElementById("resetBtn");
         const leaveBtn = document.getElementById("leaveBtn");
 
         const landingScreen = document.getElementById("landingScreen");
         const gameScreen = document.getElementById("gameScreen");
+        const openRoomsList = document.getElementById("openRoomsList");
 
         const chatMessages = document.getElementById("chatMessages");
         const chatInput = document.getElementById("chatInput");
@@ -504,12 +569,21 @@
         const resultOverlay = document.getElementById("resultOverlay");
         const resultText = document.getElementById("resultText");
 
+        const redClock = document.getElementById("redClock");
+        const blackClock = document.getElementById("blackClock");
+        const redClockBox = document.getElementById("redClockBox");
+        const blackClockBox = document.getElementById("blackClockBox");
+        const redNameLabel = document.getElementById("redNameLabel");
+        const blackNameLabel = document.getElementById("blackNameLabel");
+
         let myColor = "spectator";
+        let myName = "";
         let selectedPiece = null;
         let gameState = null;
         let currentRoomId = null;
         let isJoined = false;
         let shownGameResult = false;
+        let openRooms = [];
 
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/gamehub")
@@ -540,6 +614,8 @@
             gameState = state;
             selectedPiece = null;
             updateStatus();
+            updatePlayerLabels();
+            updateClocks();
             drawBoard();
 
             if (!wasGameOver && gameState.gameOver && !shownGameResult) {
@@ -557,28 +633,42 @@
 
         connection.on("PlayerDisconnected", () => {
             updateStatus("Bir oyuncu ayrıldı");
-            addSystemMessage("Rakip bağlantıdan çıktı.");
+            addSystemMessage("Bir oyuncu bağlantıdan çıktı.");
         });
 
         connection.on("ReceiveChatMessage", (sender, message) => {
             addChatMessage(sender, message);
         });
 
+        connection.on("ReceiveOpenRooms", (rooms) => {
+            openRooms = rooms || [];
+            renderOpenRooms();
+        });
+
         connection.start()
             .then(() => {
                 statusText.textContent = "Bağlandı. Oda kodunu gir.";
+                connection.invoke("RequestOpenRooms");
+                setInterval(() => {
+                    if (!isJoined) {
+                        connection.invoke("RequestOpenRooms").catch(() => {});
+                    }
+                }, 5000);
             })
             .catch(err => {
                 console.error(err);
                 statusText.textContent = "Bağlantı hatası";
             });
 
-        joinBtn.addEventListener("click", joinRoom);
+        joinBtn.addEventListener("click", () => joinRoom());
+        quickMatchBtn.addEventListener("click", quickMatch);
 
         roomInput.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-                joinRoom();
-            }
+            if (e.key === "Enter") joinRoom();
+        });
+
+        playerNameInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") joinRoom();
         });
 
         resetBtn.addEventListener("click", function () {
@@ -603,18 +693,21 @@
 
         sendChatBtn.addEventListener("click", sendChat);
         chatInput.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-                sendChat();
-            }
+            if (e.key === "Enter") sendChat();
         });
 
-        function joinRoom() {
-            const roomId = roomInput.value.trim();
+        setInterval(() => {
+            updateClocks();
+        }, 250);
 
-            if (roomId === "") {
-                return;
-            }
+        function joinRoom(forcedRoomId = null) {
+            const roomId = forcedRoomId || roomInput.value.trim();
+            const playerName = playerNameInput.value.trim();
 
+            if (playerName === "") return;
+            if (roomId === "") return;
+
+            myName = playerName;
             currentRoomId = roomId;
             isJoined = true;
             roomInfo.textContent = "Oda: " + currentRoomId;
@@ -622,7 +715,7 @@
             landingScreen.style.display = "none";
             gameScreen.classList.add("active");
 
-            connection.invoke("JoinGame", currentRoomId)
+            connection.invoke("JoinGame", currentRoomId, myName)
                 .then(() => {
                     addSystemMessage("Odaya katıldın.");
                 })
@@ -632,15 +725,54 @@
                 });
         }
 
+        function quickMatch() {
+            const playerName = playerNameInput.value.trim();
+            if (playerName === "") return;
+
+            if (openRooms.length > 0) {
+                joinRoom(openRooms[0].roomId);
+                return;
+            }
+
+            const randomRoom = "oda-" + Math.random().toString(36).slice(2, 8);
+            roomInput.value = randomRoom;
+            joinRoom(randomRoom);
+        }
+
+        function renderOpenRooms() {
+            openRoomsList.innerHTML = "";
+
+            if (!openRooms || openRooms.length === 0) {
+                openRoomsList.innerHTML = `<div class="room-card">Şu anda açık oda yok. Hızlı eşleş ile yeni oda açabilirsin.</div>`;
+                return;
+            }
+
+            for (const room of openRooms) {
+                const card = document.createElement("div");
+                card.className = "room-card";
+                card.innerHTML = `
+                    <div class="room-card-title">${escapeHtml(room.roomId)}</div>
+                    <div>Bekleyen: ${escapeHtml(room.waitingPlayerName || "Oyuncu")}</div>
+                    <div>Renk: ${escapeHtml(room.waitingColor || "-")}</div>
+                    <button type="button">Bu Odaya Katıl</button>
+                `;
+
+                card.querySelector("button").addEventListener("click", () => {
+                    roomInput.value = room.roomId;
+                    joinRoom(room.roomId);
+                });
+
+                openRoomsList.appendChild(card);
+            }
+        }
+
         function sendChat() {
             if (!currentRoomId) return;
 
             const message = chatInput.value.trim();
             if (message === "") return;
 
-            const sender =
-                myColor === "r" ? "Kırmızı" :
-                myColor === "b" ? "Siyah" : "İzleyici";
+            const sender = myName || (myColor === "r" ? "Kırmızı" : myColor === "b" ? "Siyah" : "İzleyici");
 
             connection.invoke("SendChatMessage", currentRoomId, sender, message)
                 .then(() => {
@@ -673,7 +805,7 @@
                 '"': '&quot;',
                 "'": '&#039;'
             };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
         function showResult() {
@@ -699,6 +831,50 @@
             setTimeout(() => {
                 resultOverlay.classList.remove("show");
             }, 3000);
+        }
+
+        function updatePlayerLabels() {
+            if (!gameState) return;
+            redNameLabel.textContent = gameState.redPlayerName || "Kırmızı";
+            blackNameLabel.textContent = gameState.blackPlayerName || "Siyah";
+        }
+
+        function formatTime(seconds) {
+            const s = Math.max(0, Math.floor(seconds));
+            const m = Math.floor(s / 60).toString().padStart(2, "0");
+            const r = (s % 60).toString().padStart(2, "0");
+            return `${m}:${r}`;
+        }
+
+        function getDisplayedTimes() {
+            if (!gameState) {
+                return { red: 300, black: 300 };
+            }
+
+            let red = gameState.redTimeLeftSeconds;
+            let black = gameState.blackTimeLeftSeconds;
+
+            if (!gameState.gameOver && gameState.turnStartedAtUtc) {
+                const started = new Date(gameState.turnStartedAtUtc);
+                const elapsed = Math.max(0, Math.floor((Date.now() - started.getTime()) / 1000));
+
+                if (gameState.currentPlayer === "r") {
+                    red = Math.max(0, red - elapsed);
+                } else {
+                    black = Math.max(0, black - elapsed);
+                }
+            }
+
+            return { red, black };
+        }
+
+        function updateClocks() {
+            const t = getDisplayedTimes();
+            redClock.textContent = formatTime(t.red);
+            blackClock.textContent = formatTime(t.black);
+
+            redClockBox.classList.toggle("active", gameState && gameState.currentPlayer === "r" && !gameState.gameOver);
+            blackClockBox.classList.toggle("active", gameState && gameState.currentPlayer === "b" && !gameState.gameOver);
         }
 
         function isRedPiece(piece) {
@@ -758,68 +934,97 @@
                     const p = boardData[r][c];
                     if (!belongsToPlayer(p, gameState.currentPlayer)) continue;
 
-                    for (const [dr, dc] of getDirections(p)) {
-                        const mr = r + dr;
-                        const mc = c + dc;
-                        const lr = r + 2 * dr;
-                        const lc = c + 2 * dc;
-
-                        if (!insideBoard(mr, mc) || !insideBoard(lr, lc)) continue;
-
-                        const midPiece = boardData[mr][mc];
-                        const landing = boardData[lr][lc];
-
-                        if (
-                            gameState.currentPlayer === "r" &&
-                            isBlackPiece(midPiece) &&
-                            landing === ""
-                        ) {
-                            mustCapture = true;
-                        }
-
-                        if (
-                            gameState.currentPlayer === "b" &&
-                            isRedPiece(midPiece) &&
-                            landing === ""
-                        ) {
-                            mustCapture = true;
-                        }
+                    const pieceTargets = getRawTargets(r, c, true);
+                    if (pieceTargets.length > 0) {
+                        mustCapture = true;
                     }
                 }
             }
 
+            const rawTargets = getRawTargets(row, col, mustCapture);
+            for (const t of rawTargets) {
+                targets.push({ row: t.row, col: t.col });
+            }
+
+            return targets;
+        }
+
+        function getRawTargets(row, col, onlyCapture) {
+            const boardData = gameState.board;
+            const piece = boardData[row][col];
+            const targets = [];
+
+            if (piece === "") return targets;
+
+            const isFlyingKing = isKing(piece);
+
             for (const [dr, dc] of getDirections(piece)) {
-                const nr = row + dr;
-                const nc = col + dc;
+                if (isFlyingKing) {
+                    let r = row + dr;
+                    let c = col + dc;
+                    let foundEnemy = false;
 
-                if (insideBoard(nr, nc) && boardData[nr][nc] === "" && !mustCapture) {
-                    targets.push({ row: nr, col: nc });
-                }
+                    while (insideBoard(r, c)) {
+                        const current = boardData[r][c];
 
-                const mr = row + dr;
-                const mc = col + dc;
-                const lr = row + 2 * dr;
-                const lc = col + 2 * dc;
+                        if (current === "") {
+                            if (!onlyCapture && !foundEnemy) {
+                                targets.push({ row: r, col: c });
+                            } else if (foundEnemy) {
+                                targets.push({ row: r, col: c });
+                            }
 
-                if (!insideBoard(mr, mc) || !insideBoard(lr, lc)) continue;
+                            r += dr;
+                            c += dc;
+                            continue;
+                        }
 
-                const midPiece = boardData[mr][mc];
-                const landing = boardData[lr][lc];
+                        if (belongsToPlayer(current, gameState.currentPlayer)) {
+                            break;
+                        }
 
-                if (
-                    gameState.currentPlayer === "r" &&
-                    isBlackPiece(midPiece) &&
-                    landing === ""
-                ) {
-                    targets.push({ row: lr, col: lc });
-                }
+                        if (!foundEnemy) {
+                            foundEnemy = true;
+                            r += dr;
+                            c += dc;
+                            continue;
+                        }
 
-                if (
-                    gameState.currentPlayer === "b" &&
-                    isRedPiece(midPiece) &&
-                    landing === ""
-                ) {
-                    targets.push({ row: lr, col: lc });
+                        break;
+                    }
+                } else {
+                    const nr = row + dr;
+                    const nc = col + dc;
+
+                    if (insideBoard(nr, nc) && boardData[nr][nc] === "" && !onlyCapture) {
+                        targets.push({ row: nr, col: nc });
+                    }
+
+                    const mr = row + dr;
+                    const mc = col + dc;
+                    const lr = row + 2 * dr;
+                    const lc = col + 2 * dc;
+
+                    if (!insideBoard(mr, mc) || !insideBoard(lr, lc)) continue;
+
+                    const midPiece = boardData[mr][mc];
+                    const landing = boardData[lr][lc];
+
+                    if (
+                        gameState.currentPlayer === "r" &&
+                        isBlackPiece(midPiece) &&
+                        landing === ""
+                    ) {
+                        targets.push({ row: lr, col: lc });
+                    }
+
+                    if (
+                        gameState.currentPlayer === "b" &&
+                        isRedPiece(midPiece) &&
+                        landing === ""
+                    ) {
+                        targets.push({ row: lr, col: lc });
+                    }
                 }
             }
 
@@ -893,7 +1098,9 @@
                 return;
             }
 
-            let text = gameState.currentPlayer === "r" ? "Sıra: Kırmızı" : "Sıra: Siyah";
+            let text = gameState.currentPlayer === "r"
+                ? `Sıra: ${gameState.redPlayerName || "Kırmızı"}`
+                : `Sıra: ${gameState.blackPlayerName || "Siyah"}`;
 
             if (gameState.forcedRow !== null && gameState.forcedCol !== null) {
                 text += " | Aynı taşla yemeye devam et";
@@ -908,6 +1115,7 @@
 
         function drawBoard() {
             board.innerHTML = "";
+            board.classList.toggle("flipped", myColor === "b");
 
             if (!gameState) return;
 
