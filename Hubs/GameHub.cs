@@ -90,6 +90,18 @@ namespace OnlineDama.Hubs
             await Clients.Group(gameId).SendAsync("ReceiveState", room.Game);
         }
 
+        public async Task SendChatMessage(string gameId, string sender, string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return;
+
+            var safeMessage = message.Trim();
+            if (safeMessage.Length > 200)
+                safeMessage = safeMessage.Substring(0, 200);
+
+            await Clients.Group(gameId).SendAsync("ReceiveChatMessage", sender, safeMessage);
+        }
+
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             foreach (var kvp in Rooms)

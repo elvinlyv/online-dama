@@ -3,137 +3,485 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Online Dama</title>
+    <title>Aliyev Dama</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: #f5f5f5;
+            overflow-x: hidden;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 20px;
-            background: #f4f4f4;
+            background:
+                radial-gradient(circle at top, rgba(176, 124, 73, 0.18), transparent 35%),
+                linear-gradient(135deg, #111 0%, #17120f 35%, #231a14 100%);
         }
 
-        h1 {
-            margin-bottom: 10px;
+        .landing-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 24px;
+            overflow: hidden;
         }
 
-        #joinPanel {
-            background: white;
-            padding: 16px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            margin-bottom: 20px;
+        .landing-screen::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 70px 70px;
+            opacity: 0.28;
+            pointer-events: none;
+        }
+
+        .landing-screen::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255,255,255,0.04), transparent 20%),
+                radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03), transparent 20%);
+            pointer-events: none;
+        }
+
+        .landing-card {
+            position: relative;
+            z-index: 2;
+            width: min(900px, 96vw);
+            padding: 40px 30px;
+            border-radius: 28px;
+            background: rgba(13, 13, 13, 0.82);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+            backdrop-filter: blur(8px);
+            text-align: center;
+        }
+
+        .landing-title {
+            font-size: clamp(42px, 7vw, 88px);
+            font-weight: 800;
+            letter-spacing: 2px;
+            margin: 0 0 12px;
+            color: #f2dec2;
+            text-shadow: 0 6px 30px rgba(0,0,0,0.35);
+        }
+
+        .landing-subtitle {
+            margin: 0 0 30px;
+            font-size: clamp(16px, 2vw, 22px);
+            color: #d2c1a7;
+        }
+
+        .hero-pieces {
             display: flex;
-            gap: 10px;
-            align-items: center;
+            justify-content: center;
+            gap: 26px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+
+        .hero-piece {
+            width: 74px;
+            height: 74px;
+            border-radius: 50%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 3px solid rgba(255,255,255,0.12);
+        }
+
+        .hero-piece.red {
+            background: linear-gradient(145deg, #d11f1f, #7d0d0d);
+        }
+
+        .hero-piece.black {
+            background: linear-gradient(145deg, #333, #080808);
+        }
+
+        .join-panel {
+            max-width: 520px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
             flex-wrap: wrap;
             justify-content: center;
         }
 
-        #joinPanel input {
-            padding: 10px;
+        .join-panel input {
+            flex: 1;
+            min-width: 240px;
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            color: white;
             font-size: 16px;
-            width: 220px;
+            outline: none;
         }
 
-        #joinPanel button {
-            padding: 10px 14px;
+        .join-panel input::placeholder {
+            color: #b8b8b8;
+        }
+
+        .join-panel button,
+        .game-btn,
+        .chat-input-row button {
+            padding: 14px 18px;
+            border: none;
+            border-radius: 14px;
             font-size: 15px;
+            font-weight: 700;
             cursor: pointer;
+            color: #111;
+            background: linear-gradient(135deg, #f3d59b, #c98d45);
+            transition: transform 0.15s ease, opacity 0.15s ease;
         }
 
-        #topbar {
-            margin-bottom: 16px;
-            text-align: center;
+        .join-panel button:hover,
+        .game-btn:hover,
+        .chat-input-row button:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
         }
 
-        #status, #playerInfo, #roomInfo {
-            margin: 6px 0;
-            font-size: 18px;
-            font-weight: bold;
+        .signature {
+            position: fixed;
+            right: 14px;
+            bottom: 10px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.65);
+            z-index: 999;
+            user-select: none;
+            letter-spacing: 0.4px;
+        }
+
+        .game-screen {
+            display: none;
+            min-height: 100vh;
+            padding: 24px 18px 28px;
+        }
+
+        .game-screen.active {
+            display: block;
+        }
+
+        .topbar {
+            max-width: 1380px;
+            margin: 0 auto 18px;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .topbar-left h1 {
+            margin: 0 0 6px;
+            font-size: 32px;
+            color: #f2dec2;
+        }
+
+        .info-line {
+            font-size: 15px;
+            color: #ddd;
+            margin: 4px 0;
+        }
+
+        .topbar-right {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .main-layout {
+            max-width: 1380px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(320px, 1fr) 270px;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .board-card,
+        .chat-card {
+            background: rgba(13, 13, 13, 0.84);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 24px;
+            padding: 18px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+            backdrop-filter: blur(10px);
+        }
+
+        .board-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
         }
 
         #board {
             display: grid;
-            grid-template-columns: repeat(8, 70px);
-            grid-template-rows: repeat(8, 70px);
-            border: 4px solid #222;
+            grid-template-columns: repeat(8, 72px);
+            grid-template-rows: repeat(8, 72px);
+            border: 6px solid #3b2413;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.35);
         }
 
         .cell {
-            width: 70px;
-            height: 70px;
+            width: 72px;
+            height: 72px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-sizing: border-box;
-        }
-
-        .light {
-            background-color: #f0d9b5;
-        }
-
-        .dark {
-            background-color: #b58863;
-        }
-
-        .selected {
-            outline: 4px solid yellow;
-            outline-offset: -4px;
-        }
-
-        .hint {
-            box-shadow: inset 0 0 0 4px rgba(0, 255, 0, 0.65);
-        }
-
-        .piece {
-            width: 52px;
-            height: 52px;
-            border-radius: 50%;
             position: relative;
         }
 
+        .light {
+            background: #e5c79d;
+        }
+
+        .dark {
+            background: #8b5a2b;
+        }
+
+        .selected {
+            outline: 4px solid #ffe66a;
+            outline-offset: -4px;
+        }
+
+        .hint::after {
+            content: "";
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(111, 255, 123, 0.8);
+            position: absolute;
+            box-shadow: 0 0 18px rgba(111, 255, 123, 0.8);
+        }
+
+        .piece {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            position: relative;
+            box-shadow: inset 0 4px 10px rgba(255,255,255,0.12), 0 5px 14px rgba(0,0,0,0.35);
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
         .red-piece {
-            background-color: #d22;
+            background: radial-gradient(circle at 30% 30%, #ff5b5b, #b91515 60%, #6f0c0c 100%);
         }
 
         .black-piece {
-            background-color: #111;
+            background: radial-gradient(circle at 30% 30%, #5e5e5e, #1f1f1f 55%, #080808 100%);
         }
 
         .king::after {
             content: "K";
-            color: white;
-            font-weight: bold;
-            font-size: 20px;
+            color: #fff3c8;
+            font-size: 22px;
+            font-weight: 900;
             position: absolute;
-            top: 50%;
             left: 50%;
+            top: 50%;
             transform: translate(-50%, -50%);
+            text-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
 
-        .hidden {
+        .chat-title {
+            margin: 0 0 12px;
+            color: #f2dec2;
+            font-size: 20px;
+        }
+
+        #chatMessages {
+            height: 480px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.04);
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            color: #ececec;
+            word-wrap: break-word;
+        }
+
+        .chat-message strong {
+            color: #f3d59b;
+        }
+
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        #chatInput {
+            flex: 1;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.05);
+            color: white;
+            outline: none;
+        }
+
+        .result-overlay {
+            position: fixed;
+            inset: 0;
             display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.78);
+            z-index: 1000;
+            backdrop-filter: blur(6px);
+        }
+
+        .result-overlay.show {
+            display: flex;
+            animation: fadeIn 0.35s ease;
+        }
+
+        .result-text {
+            font-size: clamp(54px, 10vw, 120px);
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        }
+
+        .result-text.win {
+            color: #6cff86;
+        }
+
+        .result-text.lose {
+            color: #ff6767;
+        }
+
+        .result-text.draw {
+            color: #ffe27a;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 1100px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .chat-card {
+                order: 2;
+            }
+
+            .board-card {
+                order: 1;
+            }
+
+            #chatMessages {
+                height: 240px;
+            }
+        }
+
+        @media (max-width: 700px) {
+            #board {
+                grid-template-columns: repeat(8, 42px);
+                grid-template-rows: repeat(8, 42px);
+            }
+
+            .cell {
+                width: 42px;
+                height: 42px;
+            }
+
+            .piece {
+                width: 32px;
+                height: 32px;
+            }
+
+            .topbar-left h1 {
+                font-size: 24px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Online Dama</h1>
+    <div id="landingScreen" class="landing-screen">
+        <div class="landing-card">
+            <div class="hero-pieces">
+                <div class="hero-piece red"></div>
+                <div class="hero-piece black"></div>
+                <div class="hero-piece red"></div>
+            </div>
 
-    <div id="joinPanel">
-        <input type="text" id="roomInput" placeholder="Oda kodu gir (örn: oda123)" />
-        <button id="joinBtn">Katıl</button>
-        <button id="resetBtn">Yeni Oyun</button>
+            <h1 class="landing-title">DAMA</h1>
+            <p class="landing-subtitle">Rakibini bul, odaya katıl ve maça başla.</p>
+
+            <div class="join-panel">
+                <input type="text" id="roomInput" placeholder="Oda kodunu gir" />
+                <button id="joinBtn">Oyuna Katıl</button>
+            </div>
+        </div>
     </div>
 
-    <div id="topbar">
-        <div id="roomInfo">Oda: Henüz bağlanmadı</div>
-        <div id="playerInfo">Oyuncu rengi atanıyor...</div>
-        <div id="status">Bağlanıyor...</div>
+    <div id="gameScreen" class="game-screen">
+        <div class="topbar">
+            <div class="topbar-left">
+                <h1>Online Dama</h1>
+                <div id="roomInfo" class="info-line">Oda: -</div>
+                <div id="playerInfo" class="info-line">Oyuncu rengi atanıyor...</div>
+                <div id="status" class="info-line">Bağlanıyor...</div>
+            </div>
+
+            <div class="topbar-right">
+                <button id="resetBtn" class="game-btn">Yeni Oyun</button>
+                <button id="leaveBtn" class="game-btn">Çıkış</button>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <div class="board-card">
+                <div class="board-wrap">
+                    <div id="board"></div>
+                </div>
+            </div>
+
+            <div class="chat-card">
+                <h3 class="chat-title">Sohbet</h3>
+                <div id="chatMessages"></div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatInput" placeholder="Mesaj yaz..." maxlength="200" />
+                    <button id="sendChatBtn">Gönder</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div id="board"></div>
+    <div id="resultOverlay" class="result-overlay">
+        <div id="resultText" class="result-text">WIN</div>
+    </div>
+
+    <div class="signature">Abidin Hüseynzade</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
     <script>
@@ -144,12 +492,24 @@
         const roomInput = document.getElementById("roomInput");
         const joinBtn = document.getElementById("joinBtn");
         const resetBtn = document.getElementById("resetBtn");
+        const leaveBtn = document.getElementById("leaveBtn");
+
+        const landingScreen = document.getElementById("landingScreen");
+        const gameScreen = document.getElementById("gameScreen");
+
+        const chatMessages = document.getElementById("chatMessages");
+        const chatInput = document.getElementById("chatInput");
+        const sendChatBtn = document.getElementById("sendChatBtn");
+
+        const resultOverlay = document.getElementById("resultOverlay");
+        const resultText = document.getElementById("resultText");
 
         let myColor = "spectator";
         let selectedPiece = null;
         let gameState = null;
         let currentRoomId = null;
         let isJoined = false;
+        let shownGameResult = false;
 
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/gamehub")
@@ -171,13 +531,24 @@
 
         connection.on("GameStarted", () => {
             updateStatus("Oyun başladı");
+            addSystemMessage("Oyun başladı.");
         });
 
         connection.on("ReceiveState", (state) => {
+            const wasGameOver = gameState ? gameState.gameOver : false;
+
             gameState = state;
             selectedPiece = null;
             updateStatus();
             drawBoard();
+
+            if (!wasGameOver && gameState.gameOver && !shownGameResult) {
+                showResult();
+            }
+
+            if (!gameState.gameOver) {
+                shownGameResult = false;
+            }
         });
 
         connection.on("InvalidMove", () => {
@@ -186,11 +557,16 @@
 
         connection.on("PlayerDisconnected", () => {
             updateStatus("Bir oyuncu ayrıldı");
+            addSystemMessage("Rakip bağlantıdan çıktı.");
+        });
+
+        connection.on("ReceiveChatMessage", (sender, message) => {
+            addChatMessage(sender, message);
         });
 
         connection.start()
             .then(() => {
-                statusText.textContent = "Bağlandı. Oda kodu girip katıl.";
+                statusText.textContent = "Bağlandı. Oda kodunu gir.";
             })
             .catch(err => {
                 console.error(err);
@@ -199,6 +575,12 @@
 
         joinBtn.addEventListener("click", joinRoom);
 
+        roomInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                joinRoom();
+            }
+        });
+
         resetBtn.addEventListener("click", function () {
             if (!currentRoomId) {
                 updateStatus("Önce bir odaya katıl");
@@ -206,15 +588,23 @@
             }
 
             connection.invoke("ResetGame", currentRoomId)
+                .then(() => {
+                    addSystemMessage("Oyun sıfırlandı.");
+                })
                 .catch(err => {
                     console.error(err.toString());
                     updateStatus("Yeni oyun başlatma hatası");
                 });
         });
 
-        roomInput.addEventListener("keydown", function (e) {
+        leaveBtn.addEventListener("click", function () {
+            location.reload();
+        });
+
+        sendChatBtn.addEventListener("click", sendChat);
+        chatInput.addEventListener("keydown", function (e) {
             if (e.key === "Enter") {
-                joinRoom();
+                sendChat();
             }
         });
 
@@ -222,7 +612,6 @@
             const roomId = roomInput.value.trim();
 
             if (roomId === "") {
-                updateStatus("Lütfen oda kodu gir");
                 return;
             }
 
@@ -230,12 +619,86 @@
             isJoined = true;
             roomInfo.textContent = "Oda: " + currentRoomId;
             statusText.textContent = "Odaya katılıyor...";
+            landingScreen.style.display = "none";
+            gameScreen.classList.add("active");
 
             connection.invoke("JoinGame", currentRoomId)
+                .then(() => {
+                    addSystemMessage("Odaya katıldın.");
+                })
                 .catch(err => {
                     console.error(err.toString());
                     updateStatus("Odaya katılma hatası");
                 });
+        }
+
+        function sendChat() {
+            if (!currentRoomId) return;
+
+            const message = chatInput.value.trim();
+            if (message === "") return;
+
+            const sender =
+                myColor === "r" ? "Kırmızı" :
+                myColor === "b" ? "Siyah" : "İzleyici";
+
+            connection.invoke("SendChatMessage", currentRoomId, sender, message)
+                .then(() => {
+                    chatInput.value = "";
+                })
+                .catch(err => console.error(err.toString()));
+        }
+
+        function addChatMessage(sender, message) {
+            const div = document.createElement("div");
+            div.className = "chat-message";
+            div.innerHTML = `<strong>${escapeHtml(sender)}:</strong> ${escapeHtml(message)}`;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addSystemMessage(message) {
+            const div = document.createElement("div");
+            div.className = "chat-message";
+            div.innerHTML = `<strong>Sistem:</strong> ${escapeHtml(message)}`;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        function showResult() {
+            if (!gameState || !gameState.gameOver) return;
+
+            shownGameResult = true;
+
+            let text = "DRAW";
+            let cls = "draw";
+
+            if (gameState.winner === myColor) {
+                text = "WIN";
+                cls = "win";
+            } else if (myColor !== "spectator") {
+                text = "LOSE";
+                cls = "lose";
+            }
+
+            resultText.textContent = text;
+            resultText.className = "result-text " + cls;
+            resultOverlay.classList.add("show");
+
+            setTimeout(() => {
+                resultOverlay.classList.remove("show");
+            }, 3000);
         }
 
         function isRedPiece(piece) {
